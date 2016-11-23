@@ -1,0 +1,42 @@
+#!/bin/sh /etc/rc.common
+
+#net-modem is for DSL modem mode script.
+start0()
+{
+	[ "X$($CONFIG get modem_mode)" = "X1" ] && $CONFIG set device_mode="modem" || $CONFIG set device_mode="router"
+
+	case "$($CONFIG get device_mode)" in
+	router)
+		/etc/init.d/net-lan start
+		/etc/init.d/net-wan start
+		/etc/init.d/init6 start
+		cmd_traffic_meter start
+		;;
+	modem)
+		/etc/init.d/net-lan start
+		/etc/init.d/net-wan start
+		;;
+	esac
+}
+
+stop0()
+{
+	case "$($CONFIG get device_mode)" in
+	router)
+		cmd_traffic_meter stop
+		/etc/init.d/init6 stop
+		/etc/init.d/net-wan stop
+		/etc/init.d/net-lan stop
+		;;
+	modem)
+		/etc/init.d/net-wan stop
+		/etc/init.d/net-lan stop
+		;;
+	esac
+}
+
+restart()
+{
+	stop0
+	start0
+}

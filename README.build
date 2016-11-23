@@ -1,0 +1,15 @@
+Build Instructions
+
+
+Note: 1) This package has been built successfully on Ubuntu with gcc 4.5.2.
+      2) Compiling this package on platforms other than Ubuntu may have unexpected results.
+
+How to build:
+1. unzip R7500v2-V1.0.3.4_gpl_src.tar.bz2.zip
+2. tar -jxvf R7500v2-V1.0.3.4_gpl_src.tar.bz2
+3. cd R7500v2-V1.0.3.4_gpl_src
+4. cp configs/defconfig-r7500v2 .config
+5. make V=99
+6. the final images is './bin/ipq806x/R7500v2-V1.0.3.4.img'
+
+User may upgrade to this image using the R7500v2 GUI "Router Upgrade" page.

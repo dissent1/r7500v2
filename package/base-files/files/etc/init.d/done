@@ -1,0 +1,49 @@
+#!/bin/sh /etc/rc.common
+# Copyright (C) 2006 OpenWrt.org
+
+START=95
+boot() {
+	# process user commands
+	[ -f /etc/rc.local ] && {
+		sh /etc/rc.local
+	}
+
+	# after DUT boot done, enable GRO
+	ethtool -K eth1 gro on
+	if [ "x$($CONFIG get factory_mode)" = "x1" ]; then
+		if [ "x$($CONFIG get factory_tt3)" = "x1" ]; then
+			ledcontrol -n usb1 -c amber -s on
+		fi
+	fi
+	# set leds to normal state
+	if [ "x$($CONFIG get factory_mode)" = "x1" ]; then
+		power_led.sh &
+	else
+		ledcontrol -n power -c green -s on
+	fi
+
+	led_option="$($CONFIG get led_blinking_setting)"
+	if [ "$led_option" = "0" ]; then
+		ledcontrol -n option_blink -c green -s on
+	elif [ "$led_option" = "1" ]; then
+		ledcontrol -n option_on -c green -s on
+	elif [ "$led_option" = "2" ]; then
+		ledcontrol -n option_off -c green -s on
+	fi
+
+	cmd_ftp restart &
+
+	# Start ipmac binding
+	ip_mac start
+
+	# If support DSL, we need run some scirpts for debug
+	if [ "$DSL_SUPPORT" = "1" ]; then
+		# For D7800 is shipped, we don't need auto upload connect messages to NTGR FTP now.
+		# /usr/sbin/dni_dsl_log_upload.sh &
+		# Print DSL state, we can find these messages from log.htm page
+		/usr/sbin/dni_dsl_lsg_vig_g997xtusecg.sh &
+	fi
+
+	rm -f /tmp/boot_status
+	echo "[${DGC_PRODUCT_NAME}]***boot done***" > /dev/console
+}

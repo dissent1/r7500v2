@@ -1,0 +1,18 @@
+#!/bin/sh
+. /lib/cfgmgr/cfgmgr.sh
+
+start () {
+	/etc/init.d/syslogd start
+	/etc/init.d/ntpclient start
+
+	/etc/init.d/cron start
+}
+
+stop() {
+	/etc/init.d/syslogd stop
+	/etc/init.d/ntpclient stop
+	/etc/init.d/cron stop
+}
+
+oc stop
+oc start

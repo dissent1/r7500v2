@@ -1,0 +1,20 @@
+#!/bin/sh /etc/rc.common
+START=20
+
+start() {
+	# Start detcable
+	if [ "$DSL_SUPPORT" = "1" ]; then
+		/usr/bin/detcable 2 dsl
+	else
+		/usr/bin/detcable 2
+	fi
+}
+
+stop() {
+	killall /usr/bin/detcable
+}
+
+restart() {
+	stop
+	start
+}

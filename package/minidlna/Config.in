@@ -1,0 +1,6 @@
+config MINIDLNA_MODELNAME
+	string
+	prompt "Model name of the UPnP MediaServer in router"
+	default "Windows Media Connect compatible (ReadyDLNA)"
+	help
+	  Model name of the UPnP MediaServer in router, such as "Windows Media Connect compatible (NETGEAR WNDR3800)"

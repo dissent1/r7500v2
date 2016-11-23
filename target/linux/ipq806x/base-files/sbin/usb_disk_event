@@ -1,0 +1,153 @@
+#!/bin/sh
+
+if [ "$(pidof $(basename $0))" != "$$"  ]; then
+	echo "handing previous event, sleep 2" > /dev/console
+	sleep 2
+fi
+
+#These variable indicate Devices attached to DUT
+printer1num=0
+printer3num=0
+usb1num=0
+usb3num=0
+
+usbdisknum=0
+satadisknum=0
+
+#These variable indicate USB LED status now
+usb1_led=$(cat /tmp/usb1_led)
+usb3_led=$(cat /tmp/usb3_led)
+sata_led=$(cat /tmp/satadisknum)
+
+if [ "x$usb1_led" = "x" ]; then
+	usb1_led=0
+fi
+
+if [ "x$usb3_led" = "x" ]; then
+	usb3_led=0
+fi
+
+if [ "x$sata_led" = "x" ]; then
+	sata_led=0
+fi
+#check usb-printer plug or unplug.
+check_usb_printer(){
+	printer1num=$(grep "product" /proc/NetUSB/0/device | wc -l)
+	printer3num=$(grep "product" /proc/NetUSB/1/device | wc -l)
+}
+
+#check sata plug or unplug.
+check_sata(){
+	#eSATA disk recognized.
+	#cd /sys/block/sdc; ls -l
+	#device -> ../../devices/platform/msm_sata.0/ahci.0/ata1/host0/target0:0:0/0:0:0:0
+	#To get ata1 when mounted
+	ls -l /sys/block | grep sd | awk '{print $9}' > /tmp/disk_event
+	while read LINE
+	do
+		sata_port=$(ls -l /sys/block/$LINE | grep ata | awk '{print $11}' | awk -F/ '{print $7}')
+		if [ "$sata_port" = "ata1" ]; then
+			echo "SATA disk mounted!!!"
+			satadisknum=1
+		fi
+	done</tmp/disk_event
+	rm /tmp/disk_event
+}
+
+#check usb-storage plug or unplug
+check_usb_storage(){
+	usbdisknum=$(grep "Driver=usb-storage" /proc/bus/usb/devices | wc -l)
+	ls -l /sys/block | grep sd | awk '{print $9}' > /tmp/disk_event
+	while read LINE
+	do
+		#cd /sys/block/sda; ls -l
+		#../../devices/platform/ipq-dwc3.0/dwc3.0/xhci-hcd.0/usb1/1-1/1-1:1.0/host4/target4:0:0/4:0:0:0
+		#../../devices/platform/ipq-dwc3.1/dwc3.1/xhci-hcd.1/usb3/4-1/4-1:1.0/host3/target3:0:0/3:0:0:0
+		# To get usb1 or usb3
+		usb_port=$(ls -l /sys/block/$LINE | grep usb | awk '{print $11}' | awk -F/ '{print $8}')
+		usb_interface=$(ls -l /sys/block/$LINE | grep usb | awk '{print $11}' | awk -F/ '{print $6}')
+
+		echo "usb_port= $usb_port" > /dev/console
+		echo "usb_interface =$usb_interface" > /dev/console
+		if [ "$usb_interface" = "dwc3.0" ]; then
+			#For USB hub case(if just plug an USB-HUB, LED won't trun on)
+			for i in `df | grep sd | awk '{print $1}' | awk -F/ '{print $3}' | sed 's/[0-9]//g'`
+			do
+				if [ "$i" = "$LINE" ]; then
+					echo "New USB1 disk mounted!!!" > /dev/console
+					usb1num=1
+					break;
+				else
+					usb1num=0
+				fi
+			done
+		elif [ "$usb_interface" = "dwc3.1" ]; then
+			#For USB hub case(if just plug an USB-HUB, LED won't trun on)
+			for j in `df | grep sd | awk '{print $1}' | awk -F/ '{print $3}' | sed 's/[0-9]//g'`
+			do
+				if [ "$j" = "$LINE" ]; then
+					echo "New USB2 disk mounted!!!" > /dev/console
+					usb3num=1
+					break;
+				else
+					usb3num=0
+				fi
+			done
+		fi
+	done</tmp/disk_event
+	rm /tmp/disk_event
+}
+
+led_control(){
+	check_sata
+	check_usb_printer
+	check_usb_storage
+
+	#it may need a few seconds time to create /sys/block/sd*
+	if [ $(($usb1num+$usb3num)) != "x$usbdisknum" ]; then
+		echo "usb1num=$usb1num usb3num=$usb3num usbdisknum=$usbdisknum" > /dev/console
+		sleep 3
+		check_usb_storage
+	fi
+	
+	#led for sata
+	if [ "x$sata_led" = "x0" -a "x$satadisknum" = "x1" ];then
+		ledcontrol -n sata_blink -c green -s on
+		echo "sata led turn on" > /dev/console
+	elif [ "x$sata_led" = "x1" -a "x$satadisknum" = "x0"];then
+		ledcontrol -n sata -c green -s off
+		echo "sata led turn off" > /dev/console
+	fi
+
+	#led for usb1
+	if [ "x$usb1_led" = "x0" -a $(($printer1num+$usb1num)) != "0" ];then
+		ledcontrol -n usb1_blink -c green -s on
+		echo "usb1 led turn on" > /dev/console
+		usb1_led=1
+	elif [ "x$usb1_led" = "x1" -a $(($printer1num+$usb1num)) = "0" ];then
+		ledcontrol -n usb1 -c green -s off
+		echo "usb1 led turn off" > /dev/console
+		usb1_led=0
+	fi
+
+	#led for usb3
+	if [ "x$usb3_led" = "x0" -a $(($printer3num+$usb3num)) != "0" ];then
+		ledcontrol -n usb3_blink -c green -s on
+		echo "usb3 led turn on" > /dev/console
+		usb3_led=1
+	elif [ "x$usb3_led" = "x1" -a $(($printer3num+$usb3num)) = "0" ];then
+		ledcontrol -n usb3 -c green -s off
+		echo "usb3 len trun off" > /dev/console
+		usb3_led=0
+	fi
+
+}
+
+echo "******* usb_disk_event start **********" > /dev/console
+led_control
+echo "******* usb_disk_event stop **********" > /dev/console
+
+echo $usb1_led > /tmp/usb1_led
+echo $usb3_led > /tmp/usb3_led
+echo $usbdisknum > /tmp/usbdisknum
+echo $satadisknum > /tmp/satadisknum
